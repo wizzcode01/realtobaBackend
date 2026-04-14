@@ -1,4 +1,5 @@
 import admin from 'firebase-admin'
+import type { Auth } from 'firebase-admin/auth'
 
 const projectId = process.env.FIREBASE_PROJECT_ID
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
@@ -25,7 +26,7 @@ if (!admin.apps.length) {
 }
 
 export const firebaseAdmin = admin
-export const auth = admin.auth()
+export const auth: Auth = admin.auth()
 
 /**
  * Verify a Firebase ID token and return the decoded claims.
