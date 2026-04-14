@@ -300,7 +300,7 @@ router.get('/properties', async (req: Request, res: Response): Promise<void> => 
   try {
     const { data, error, count } = await supabaseAdmin
       .from('properties')
-      .select('*, agent:users(id, name, email, phone)', { count: 'exact' })
+     .select('*, agent:users!properties_agent_id_fkey(id, name, email, phone)', { count: 'exact' })
       .eq('verification_status', status)
       .order('created_at', { ascending: false })
       .range(pageNum * 20, (pageNum + 1) * 20 - 1)
