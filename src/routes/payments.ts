@@ -28,7 +28,7 @@ import { validatePaystackWebhook } from '../middleware/validatePaystack.js'
 import { requireAuth } from '../middleware/auth.js'
 import { webhookLimiter, strictLimiter } from '../middleware/rateLimiter.js'
 import { verifyTransaction, getBanks, verifyBankAccount } from '../lib/paystack.js'
-import { supabaseAdmin, logAdminAction } from '../lib/supabase.js'
+import { supabaseAdmin} from '../lib/supabase.js'
 import type { PaystackWebhookEvent } from '../types/index.js'
 
 const router = Router()
@@ -55,8 +55,8 @@ router.post(
     // Only process charge.success events
     if (event.event !== 'charge.success') return
 
-    const { reference, amount, status, metadata } = event.data
-
+    const { reference, status, metadata } = event.data
+   // amount,
     if (status !== 'success') return
 
     try {

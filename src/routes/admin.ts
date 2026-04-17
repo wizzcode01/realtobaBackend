@@ -37,7 +37,7 @@ router.use(requireAuth, requireAdmin)
 // ─────────────────────────────────────────────
 // DASHBOARD STATS
 // ─────────────────────────────────────────────
-router.get('/dashboard', async (req: Request, res: Response): Promise<void> => {
+router.get('/dashboard', async (_req: Request, res: Response): Promise<void> => {
   try {
     const [txResult, usersResult, propertiesResult, pendingResult] = await Promise.all([
       supabaseAdmin.from('transactions').select('amount, status, deal_status, agent_amount'),
@@ -445,7 +445,7 @@ router.post('/users/:id/suspend', async (req: Request<{ id: string }>, res: Resp
 // ─────────────────────────────────────────────
 // NOTIFICATIONS
 // ─────────────────────────────────────────────
-router.get('/notifications', async (req: Request, res: Response): Promise<void> => {
+router.get('/notifications', async (_req: Request, res: Response): Promise<void> => {
   try {
     const { data, error } = await supabaseAdmin
       .from('admin_notifications')
