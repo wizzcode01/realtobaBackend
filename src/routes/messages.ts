@@ -60,15 +60,19 @@
 //   const page = Math.max(0, Number(req.query.page ?? 0))
 
 //   try {
-//     // Security: verify user has access to this conversation
+//     // Security: user must be participant OR other_user (agent side)
 //     if (!user.isAdmin) {
 //       const { data: conversation } = await supabaseAdmin
 //         .from('conversations')
-//         .select('participant_user_id')
+//         .select('participant_user_id, other_user_id')
 //         .eq('id', id)
 //         .single()
 
-//       if (!conversation || (conversation as { participant_user_id: string }).participant_user_id !== user.userId) {
+//       const conv = conversation as { participant_user_id: string; other_user_id?: string | null } | null
+//       const hasAccess =
+//         conv?.participant_user_id === user.userId ||
+//         conv?.other_user_id === user.userId
+//       if (!conv || !hasAccess) {
 //         res.status(403).json({ success: false, error: 'Access denied.' })
 //         return
 //       }
@@ -184,10 +188,8 @@
 //   },
 // )
 
-// // ─────────────────────────────────────────────
 // // START A CONVERSATION (client or agent initiates)
 // // Creates a conversation with admin, or with an agent for a specific property
-// // ─────────────────────────────────────────────
 // router.post(
 //   '/conversations/start',
 //   messageLimiter,
@@ -300,20 +302,22 @@
 //   const user = (req as Request & { user: { userId: string } }).user
 
 //   try {
-//     const { count, error } = await supabaseAdmin
-//       .from('messages')
-//       .select('id', { count: 'exact' })
-//       .eq('is_read', false)
-//       .neq('sender_id', user.userId)
-//       .in(
-//         'conversation_id',
-//         (
-//           await supabaseAdmin
-//             .from('conversations')
-//             .select('id')
-//             .eq('participant_user_id', user.userId)
-//         ).data?.map((c: { id: string }) => c.id) ?? [],
-//       )
+//     // Get all conversation IDs for this user (either as participant or as agent other_user)
+//     const { data: convData } = await supabaseAdmin
+//       .from('conversations')
+//       .select('id')
+//       .or(`participant_user_id.eq.${user.userId},other_user_id.eq.${user.userId}`)
+
+//     const convIds = (convData ?? []).map((c: { id: string }) => c.id)
+
+//     const { count, error } = convIds.length === 0
+//       ? { count: 0, error: null }
+//       : await supabaseAdmin
+//           .from('messages')
+//           .select('id', { count: 'exact' })
+//           .eq('is_read', false)
+//           .neq('sender_id', user.userId)
+//           .in('conversation_id', convIds)
 
 //     if (error) throw error
 
@@ -326,6 +330,25 @@
 
 // export default router
 
+
+/**
+ * Messaging Routes
+ *
+ * GET  /api/messages/conversations         — User's conversations
+ * GET  /api/messages/conversations/:id     — Messages in a conversation
+ * POST /api/messages/conversations/:id     — Send a message
+ * POST /api/messages/conversations/start   — Start a conversation with agent
+ *
+ * Real-time delivery is handled by Supabase Realtime on the frontend.
+ * The backend handles writes and reads for security and audit purposes.
+ * Admin can view all conversations via /api/admin/* routes.
+ *
+ * Message security:
+ *   - Users can only read/write their own conversations
+ *   - Admin can read all conversations
+ *   - Content is trimmed and max 2000 chars
+ *   - No HTML allowed (prevents XSS injection)
+ */
 import { Router, Request, Response } from 'express'
 import { body, validationResult } from 'express-validator'
 import { requireAuth } from '../middleware/auth.js'
@@ -351,6 +374,7 @@ router.get('/conversations', async (req: Request, res: Response): Promise<void> 
         .select(`
           *,
           participant:users!conversations_participant_user_id_fkey(id, name, email, role, avatar_url),
+          other_participant:users!conversations_other_user_id_fkey(id, name, email, role, avatar_url),
           latest_message:messages(content, created_at, sender_type)
         `)
         .order('updated_at', { ascending: false })
@@ -362,6 +386,7 @@ router.get('/conversations', async (req: Request, res: Response): Promise<void> 
         .select(`
           *,
           participant:users!conversations_participant_user_id_fkey(id, name, email, role, avatar_url),
+          other_participant:users!conversations_other_user_id_fkey(id, name, email, role, avatar_url),
           latest_message:messages(content, created_at, sender_type)
         `)
         .or(`participant_user_id.eq.${user.userId},other_user_id.eq.${user.userId}`)
@@ -516,8 +541,10 @@ router.post(
   },
 )
 
+// ─────────────────────────────────────────────
 // START A CONVERSATION (client or agent initiates)
 // Creates a conversation with admin, or with an agent for a specific property
+// ─────────────────────────────────────────────
 router.post(
   '/conversations/start',
   messageLimiter,
