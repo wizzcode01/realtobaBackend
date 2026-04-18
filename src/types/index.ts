@@ -1,9 +1,8 @@
-/**
- * Realtoba Backend — Shared TypeScript Types
- */
+import type { Request, Response, NextFunction } from 'express'
+
 
 // ── Auth ──
-export interface AuthenticatedRequest extends Express.Request {
+export interface AuthenticatedRequest extends Request {
   user?: {
     uid: string         // Firebase UID
     email?: string
@@ -12,8 +11,6 @@ export interface AuthenticatedRequest extends Express.Request {
   }
 }
 
-// Re-export express with augmented request
-import type { Request, Response, NextFunction } from 'express'
 
 export interface TypedRequest<B = unknown, P = Record<string, string>, Q = Record<string, string>>
   extends Request<P, unknown, B, Q> {
@@ -129,4 +126,4 @@ export interface ApiError {
   code?: string
 }
 
-export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError
+// export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError

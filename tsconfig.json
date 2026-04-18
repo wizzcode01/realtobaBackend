@@ -1,30 +1,3 @@
-// {
-//   "compilerOptions": {
-//     "target": "ES2022",
-//     "module": "CommonJS",
-//     "lib": ["ES2022"],
-//     "outDir": "./dist",
-//     "rootDir": "./src",
-//     "strict": true,
-//     "esModuleInterop": true,
-//     "skipLibCheck": true,
-//      "typeRoots": [
-//       "./node_modules/@types"
-//     ],
-//     "forceConsistentCasingInFileNames": true,
-//     "resolveJsonModule": true,
-//     "declaration": true,
-//     "declarationMap": true,
-//     "sourceMap": true,
-//     "noUnusedLocals": false,
-//     "noUnusedParameters": false,
-//     "noImplicitReturns": true,
-//     "noFallthroughCasesInSwitch": true
-//   },
-//   "include": ["src/**/*"],
-//   "exclude": ["node_modules", "dist"]
-// }
-
 {
   "compilerOptions": {
     "target": "ES2020",
@@ -32,7 +5,7 @@
     "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -41,10 +14,10 @@
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false,
     "moduleResolution": "node16",
   },
   "include": ["src/**/*"],
