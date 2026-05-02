@@ -8,6 +8,7 @@ import { generalLimiter } from './middleware/rateLimiter.js'
 import paymentRoutes from './routes/payments.js'
 import adminRoutes from './routes/admin.js'
 import messageRoutes from './routes/messages.js'
+import authRoutes from './routes/auth.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 5000
@@ -18,7 +19,7 @@ app.use(helmet())
 // CORS — only allow requests from your frontend
 const allowedOrigins = [
   process.env.FRONTEND_URL ?? 'http://localhost:5174',
-  'http://localhost:5174'
+  'http://localhost:5173'
 ]
 
 const corsOptions: cors.CorsOptions = {
@@ -59,6 +60,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use('/api/payments', paymentRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/messages', messageRoutes)
+app.use('/api/auth', authRoutes)
 
 // Health check
 app.get('/health', (_req, res) => {
@@ -94,6 +96,14 @@ app.use(
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Route not found.' })
 })
+
+if (process.env.RENDER_EXTERNAL_URL) {
+    setInterval(() => {
+      fetch(`${process.env.RENDER_EXTERNAL_URL}/health`)
+        .catch(() => {})
+    }, 14 * 60 * 1000)
+    console.log('Keep-alive ping enabled for Render deployment')
+  }
 
 app.listen(PORT, () => {
   console.log(`server running on port ${PORT}`)
