@@ -109,10 +109,7 @@ app.get('/health', (_req, res) => {
   })
 })
 
-// ─────────────────────────────────────────────
-// GLOBAL ERROR HANDLER
-// Catches any unhandled errors from route handlers
-// ─────────────────────────────────────────────
+
 app.use(
   (
     err: Error,
