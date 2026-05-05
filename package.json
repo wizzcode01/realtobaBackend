@@ -30,12 +30,11 @@
     "firebase-admin": "^12.3.0",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
-    "nodemailer": "^8.0.7",
+    "resend": "^6.12.2",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "@types/nodemailer": "^8.0.0",
     "@typescript-eslint/eslint-plugin": "^8.2.0",
     "@typescript-eslint/parser": "^8.2.0",
     "eslint": "^9.9.0",

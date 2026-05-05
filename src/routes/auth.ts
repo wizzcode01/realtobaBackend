@@ -215,16 +215,6 @@ router.get(
   },
 )
 
-// ─────────────────────────────────────────────
-// POST /api/auth/switch-role
-//
-// Role switch rules:
-//   nysc  → agent  (only after 1 year service, requires NIN + credentials)
-//   nysc  → seeker (only after 1 year service)
-//   agent → seeker (anytime)
-//   seeker→ agent  (not allowed here — must re-register; too many new fields)
-//   seeker→ nysc   (not allowed — NYSC is verified status)
-// ─────────────────────────────────────────────
 router.post(
   '/switch-role',
   requireAuth,
