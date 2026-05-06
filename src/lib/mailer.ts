@@ -2,7 +2,8 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM = 'Realtoba <noreply@Realtoba.com>'
+// const FROM = 'Realtoba <noreply@Realtoba.com>'
+const FROM = 'Realtoba <onboarding@resend.dev>'
 const FRONTEND = process.env.FRONTEND_URL ?? 'https://Realtoba.com'
 
 function layout(content: string): string {

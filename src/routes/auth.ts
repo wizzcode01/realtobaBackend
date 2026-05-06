@@ -8,7 +8,7 @@
  * POST /api/auth/resend-verification   — resend verification email
  */
 import { Router } from 'express'
-import { body, query } from 'express-validator'
+import { body } from 'express-validator'
 import { validate } from '../middleware/validate.js'
 import { requireAuth } from '../middleware/auth.js'
 import { supabaseAdmin } from '../lib/supabase.js'
