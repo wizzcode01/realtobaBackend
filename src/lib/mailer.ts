@@ -2,9 +2,9 @@ import { Resend } from "resend"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// const FROM = 'Realtoba <noreply@Realtoba.com>'
-const FROM = 'Realtoba <onboarding@resend.dev>'
-const FRONTEND = process.env.FRONTEND_URL ?? 'https://Realtoba.com'
+const FROM = 'Realtoba <noreply@realtoba.com>'
+// const FROM = 'Realtoba <onboarding@resend.dev>'
+const FRONTEND = process.env.FRONTEND_URL ?? 'https://realtoba.com'
 
 function layout(content: string): string {
   return `<!DOCTYPE html>
@@ -55,7 +55,7 @@ export async function sendVerificationEmail(
   name: string,
   token: string,
 ): Promise<void> {
-   const { error } = await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: 'Verify your Realtoba email address',
@@ -79,10 +79,10 @@ export async function sendWelcomeEmail(
   role: string,
 ): Promise<void> {
   const roleLabel =
-    role === 'agent'  ? 'Property Agent' :
-    role === 'nysc'   ? 'NYSC Corps Member' :
-                        'Property Seeker'
- 
+    role === 'agent' ? 'Property Agent' :
+      role === 'nysc' ? 'NYSC Corps Member' :
+        'Property Seeker'
+
   const { error } = await resend.emails.send({
     from: FROM,
     to,
@@ -118,11 +118,11 @@ export async function sendRoleSwitchEmail(
   newRole: string,
 ): Promise<void> {
   const roleLabel = newRole === 'agent' ? 'Property Agent' : 'Property Seeker'
-   const { error } = await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: `Your Realtoba role has been updated`,
-  html: layout(`
+    html: layout(`
     <p>Hi <strong>${name}</strong>,</p>
       <p>Your account role has been successfully updated to:</p>
       <div class="code" style="font-size:20px;letter-spacing:0">${roleLabel}</div>
@@ -134,7 +134,7 @@ export async function sendRoleSwitchEmail(
         <a href="${FRONTEND}" class="btn">Go to Dashboard →</a>
       </p>
   `),
-   })
+  })
   if (error) throw new Error(`sendRoleSwitchEmail failed: ${error.message}`)
 }
 
@@ -143,7 +143,7 @@ export async function sendNYSCCompletionEmail(
   to: string,
   name: string,
 ): Promise<void> {
-   const { error } = await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: FROM,
     to,
     subject: 'Your NYSC service year is complete — choose your next role',
@@ -160,10 +160,10 @@ export async function sendNYSCCompletionEmail(
         <a href="${FRONTEND}/profile" class="btn">Choose My New Role →</a>
       </p>
   `),
-    })
+  })
 
-    if(error) throw new Error(`sendNYSCCompletionEmail failed: ${error.message}`)
- 
+  if (error) throw new Error(`sendNYSCCompletionEmail failed: ${error.message}`)
+
 }
 
 // payment confirmation
@@ -195,7 +195,7 @@ export async function sendPaymentConfirmationEmail(
       </p>
   `),
   })
-   if (error) throw new Error(`sendPaymentConfirmationEmail failed: ${error.message}`)
+  if (error) throw new Error(`sendPaymentConfirmationEmail failed: ${error.message}`)
 }
 
 export async function sendListingSubmittedEmail(
@@ -223,7 +223,7 @@ export async function sendListingSubmittedEmail(
   })
   if (error) throw new Error(`sendListingSubmittedEmail failed: ${error.message}`)
 }
- 
+
 export async function sendListingApprovedEmail(
   to: string,
   agentName: string,
@@ -274,7 +274,7 @@ export async function sendListingRejectedEmail(
   })
   if (error) throw new Error(`sendListingRejectedEmail failed: ${error.message}`)
 }
- 
+
 
 export async function verifyMailer(): Promise<boolean> {
   try {
