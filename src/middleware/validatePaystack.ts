@@ -18,7 +18,7 @@ export function validatePaystackWebhook(
   res: Response,
   next: NextFunction,
 ): void {
-  const webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET
+  const webhookSecret = process.env.PAYSTACK_SECRET_KEY
 
   if (!webhookSecret) {
     console.error('PAYSTACK_WEBHOOK_SECRET not set — webhook validation skipped (DANGEROUS in production!)')
