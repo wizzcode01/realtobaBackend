@@ -64,7 +64,7 @@ export async function sendVerificationEmail(
       <p>Welcome to Realtoba! Enter this 6-digit code to verify your email address and activate your account.</p>
       <div class="code">${token}</div>
       <div class="warn">
-        <p>This code expires in <strong>24 hours</strong>. Do not share it with anyone.</p>
+        <p>This code expires in <strong>10 mins</strong>. Do not share it with anyone.</p>
       </div>
       <p>If you didn't create a Realtoba account, please ignore this email.</p>
     `),

@@ -43,7 +43,7 @@ router.post(
       if ((user as any).email_verified) { res.json({ success: true, message: 'Email already verified' }); return }
 
       const token = generateToken()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
       // Store token in DB
       await supabaseAdmin.from('email_verifications').upsert({
@@ -141,7 +141,7 @@ router.post(
       }
 
       const token = generateToken()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
       await supabaseAdmin.from('email_verifications').upsert({
         user_id: userId, token, expires_at: expiresAt, used: false,
