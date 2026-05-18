@@ -92,6 +92,31 @@ router.post(
         return
       }
 
+      // This prevents anyone else from paying for the same property
+      if(metadata?.property_id){
+        await supabaseAdmin
+        .from('properties')
+        .update({ availability_status: 'rented' })
+        .eq('id', metadata.property_id)
+
+      } else if((updatedTx?.property as { id?: string })?.id){
+        await supabaseAdmin
+          .from('properties')
+          .update({ availability_status: 'rented' })
+          .eq('id', (updatedTx?.property as { id: string }).id)
+      }
+
+      // cancel any other pending transactions for this property
+      const propId = metadata?.property_id ?? (updatedTx?.property as {id?: string })?.id
+      if(propId){
+        await supabaseAdmin
+          .from('transactions')
+          .update({ status: 'failed' })
+          .eq('property_id', propId)
+          .eq('status', 'pending')
+          .neq('gateway_reference', reference)
+      }
+
       // Create admin notification
       await supabaseAdmin.from('admin_notifications').insert({
         type: 'payment_received',
@@ -116,7 +141,7 @@ router.post(
         })
       }
 
-      console.log(`✅ Payment processed: ${reference} — ₦${amountNaira.toLocaleString()}`)
+      console.log(`Payment processed: ${reference} — ₦${amountNaira.toLocaleString()}`)
     } catch (err) {
       console.error('Webhook processing error:', err)
       // Don't re-throw — we already sent 200 to Paystack
@@ -150,7 +175,7 @@ router.post(
       // Verify the property exists and is approved
       const { data: property, error: propError } = await supabaseAdmin
         .from('properties')
-        .select('id, title, price, agent_id, verification_status')
+        .select('id, title, price, agent_id, verification_status, availability_status')
         .eq('id', propertyId)
         .single()
 
@@ -158,11 +183,62 @@ router.post(
         res.status(404).json({ success: false, error: 'Property not found.' })
         return
       }
-
-      if ((property as { verification_status: string }).verification_status !== 'approved') {
+      
+      const prop = property  as { verification_status: string; availability_status: string }
+      if (prop.verification_status !== 'approved') {
         res.status(400).json({ success: false, error: 'This property is not approved for payment.' })
         return
       }
+
+      if (prop.availability_status !== 'available') {
+        res.status(400).json({ success: false, error: 'This property is no longer available for payment.' })
+        return
+      }
+
+      const { data: existingTx } = await supabaseAdmin
+        .from('transactions')
+        .select('id, status, deal_status, user_id')
+        .eq('property_id', propertyId)
+        .in('status', ['paid_to_platform'])
+        .not('deal_status', 'eq', 'refunded')
+        .limit(1)
+        .maybeSingle()
+
+        if(existingTx){
+          const isSameUser = (existingTx as { user_id: string }).user_id === user.userId
+          res.status(400).json({
+            success: false,
+            error: isSameUser ? 'You have already paid for this property. Check your transaction history.' : 
+            'This property has already been paid for by another user and is no longer available.', 
+
+          })
+          return
+        }
+
+        // idempontency checks
+        const { data: pendingTx } = await supabaseAdmin
+        .from('transactions')
+        .select('id, gateway_reference, amount')
+        .eq('property_id', propertyId)
+        .eq('user_id', user.userId)
+        .eq('status', 'pending')
+        .gt('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+        .maybeSingle()
+
+        // if a recent pending transaction exit reuse it. 
+        if(pendingTx){
+          const pt = pendingTx as { id: string; gateway_reference: string; amount: number } 
+          res.json({
+            success: true,
+            data: {
+              reference: pt.gateway_reference,
+              transactionId: pt.id,
+              amount: Number(amount),
+              email: user.email,
+            },
+          })
+          return
+        }
 
       const reference = `RB-${Date.now()}-${uuidv4().slice(0, 8).toUpperCase()}`
 
@@ -257,7 +333,7 @@ router.get('/transactions', requireAuth, async (req: Request, res: Response): Pr
   try {
     const { data, error } = await supabaseAdmin
       .from('transactions')
-      .select('*, property:properties(id, title, address, images)')
+      .select(`*, property:properties(id, title, address, city, state, images, availability_status)`)
       .eq('user_id', user.userId)
       .order('created_at', { ascending: false })
       .limit(50)
