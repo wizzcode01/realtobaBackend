@@ -238,7 +238,7 @@ export async function sendListingApprovedEmail(
       <p>Great news! Your property listing has been approved and is now <strong>live on Realtoba</strong>.</p>
       <div class="info">
         <p><strong>Property:</strong> ${propertyTitle}</p>
-        <p style="margin-top:8px"><strong>Status:</strong> ✅ Live and visible to seekers</p>
+        <p style="margin-top:8px"><strong>Status:</strong> Live and visible to seekers</p>
       </div>
       <p>Seekers and NYSC corps members can now find, save, and contact you about this property. Make sure your messages are turned on so you don't miss any inquiries.</p>
       <p style="text-align:center">
