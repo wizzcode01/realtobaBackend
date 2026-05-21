@@ -213,25 +213,35 @@ router.post(
         .eq('transaction_id', id)
         .maybeSingle()
 
-      if (existingPayout) {
-        const payoutStatus = (existingPayout as { status: string }).status
+        const ep = existingPayout as {
+          id: string; status: string; reference: string;
+          paystack_transfer_code?: string; failed_reason?: string
+        } | null
 
-        if (payoutStatus === 'success') {
-          res.status(400).json({
-            success: false,
-            error: 'Agent has already been paid for this transaction.',
+      // if (existingPayout) {
+      //   const payoutStatus = (existingPayout as { status: string }).status
+
+        if (ep?.status === 'success') {
+          res.json({
+            success: true,
+            error: `Agent has already been paid. Reference: ${ep.reference}`,
+            data: {payoutReference: ep.reference, transferCode:ep.paystack_transfer_code},
           })
           return
         }
-
-          // delete failed payout so we can retry
-        if (payoutStatus === 'failed') {
-          await supabaseAdmin
-            .from('payouts')
-            .delete()
-            .eq('transaction_id', id)
+        
+        //if processing (in flight), don't create a duplicate
+        if(ep?.status === 'processing'){
+          res.status(400).json({
+            success: false,
+            error: 'A payout is already being processed for this transaction. Please wait a few minutes.',
+          })
+          return
         }
-      }
+         if(ep?.status === 'failed'){
+          await supabaseAdmin.from('payouts').delete().eq('id', ep.id)
+         }
+         
       // Step 3: Create a payout record (status: processing) idempotency check
       const payoutReference = `PAYOUT-${uuidv4().slice(0, 12).toUpperCase()}`
 
