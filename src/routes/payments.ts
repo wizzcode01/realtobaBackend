@@ -444,7 +444,13 @@ router.get(
 
       res.json({
         success: true,
-        data,
+        data: data 
+         ? {
+          bankName: data.bank_name,
+          accountName: data.account_name,
+          accountNumber: data.account_number,
+          isVerified: data.is_verified,
+        } : null,
       })
     }catch(err){
        console.error('Get bank account error:', err)
