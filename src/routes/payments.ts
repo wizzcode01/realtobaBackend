@@ -423,5 +423,40 @@ router.post(
   },
 )
 
+router.get(
+  '/agents/me/bank-account',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+       const user = (req as Request & { user: { userId: string } }).user
+       const { data, error } = await supabaseAdmin
+        .from('agent_bank_accounts')
+        .select(`
+          account_name,
+          account_number,
+          bank_name,
+          is_verified
+        `)
+        .eq('agent_id', user.userId)
+        .maybeSingle()
+
+      if (error) throw error
+
+      res.json({
+        success: true,
+        data,
+      })
+    }catch(err){
+       console.error('Get bank account error:', err)
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to load bank account.',
+      })
+    }
+    },
+    
+)
+
 
 export default router

@@ -180,7 +180,7 @@ router.post(
       if (tx.deal_status !== 'deal_confirmed') {
         res.status(400).json({
           success: false,
-          error: `Cannot pay agent — deal status is "${tx.deal_status}". Deal must be confirmed first.`,
+          error: `Cannot pay agent deal status is "${tx.deal_status}". Deal must be confirmed first.`,
         })
         return
       }
@@ -206,8 +206,33 @@ router.post(
         account_name: string
         bank_name: string
       }
+      
+      const { data: existingPayout } = await supabaseAdmin
+        .from('payouts')
+        .select('*')
+        .eq('transaction_id', id)
+        .maybeSingle()
 
-      // Step 3: Create a payout record (status: processing) — idempotency check
+      if (existingPayout) {
+        const payoutStatus = (existingPayout as { status: string }).status
+
+        if (payoutStatus === 'success') {
+          res.status(400).json({
+            success: false,
+            error: 'Agent has already been paid for this transaction.',
+          })
+          return
+        }
+
+          // delete failed payout so we can retry
+        if (payoutStatus === 'failed') {
+          await supabaseAdmin
+            .from('payouts')
+            .delete()
+            .eq('transaction_id', id)
+        }
+      }
+      // Step 3: Create a payout record (status: processing) idempotency check
       const payoutReference = `PAYOUT-${uuidv4().slice(0, 12).toUpperCase()}`
 
       const { data: payout, error: payoutError } = await supabaseAdmin
@@ -239,7 +264,7 @@ router.post(
           bank.paystack_recipient_code,
           tx.agent_amount,
           payoutReference,
-          `Realtoba property payout — ${(payout as { id: string }).id}`,
+          `Realtoba property payout ${(payout as { id: string }).id}`,
         )
       } catch (transferErr) {
         // Payout failed — mark as failed, don't update transaction
