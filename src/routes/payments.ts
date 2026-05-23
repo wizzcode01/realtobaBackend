@@ -84,7 +84,7 @@ router.post(
           paid_at: new Date().toISOString(),
         })
         .eq('gateway_reference', reference)
-        .select('*, property:properties(title, address, agent_id)')
+        .select('*, property:properties(id, title, address, agent_id)')
         .single()
 
       if (txError) {

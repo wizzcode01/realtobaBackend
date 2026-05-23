@@ -224,7 +224,7 @@ router.post(
         if (ep?.status === 'success') {
           res.json({
             success: true,
-            error: `Agent has already been paid. Reference: ${ep.reference}`,
+            message: `Agent has already been paid. Reference: ${ep.reference}`,
             data: {payoutReference: ep.reference, transferCode:ep.paystack_transfer_code},
           })
           return
@@ -239,9 +239,13 @@ router.post(
           return
         }
          if(ep?.status === 'failed'){
-          await supabaseAdmin.from('payouts').delete().eq('id', ep.id)
+        const { error: deleteError } = await supabaseAdmin.from('payouts').delete().eq('id', ep.id)
+
+        if(deleteError){
+          throw deleteError
+        }
          }
-         
+
       // Step 3: Create a payout record (status: processing) idempotency check
       const payoutReference = `PAYOUT-${uuidv4().slice(0, 12).toUpperCase()}`
 
