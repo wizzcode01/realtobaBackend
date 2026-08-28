@@ -9,6 +9,7 @@ import paymentRoutes from './routes/payments.js'
 import adminRoutes from './routes/admin.js'
 import messageRoutes from './routes/messages.js'
 import authRoutes from './routes/auth.js'
+import referralRoutes from './routes/referrals.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 5000
@@ -78,6 +79,8 @@ app.use('/api/payments', paymentRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/messages', messageRoutes)
 app.use('/api/auth', authRoutes)
+app.use('/api/referrals', referralRoutes)
+app.use('/api/wallet', referralRoutes)
 
 // Health check
 app.get('/health', (_req, res) => {

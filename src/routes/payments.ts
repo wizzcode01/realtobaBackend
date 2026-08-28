@@ -117,6 +117,46 @@ router.post(
           .neq('gateway_reference', reference)
       }
 
+        // ── Check for referral — if buyer came via referral link, calculate commission ──
+      if (propId && (updatedTx as any)?.user_id) {
+        const buyerId = (updatedTx as any).user_id
+
+        const { data: referral } = await supabaseAdmin
+          .from('referrals')
+          .select('id, referrer_id, commission_percent')
+          .eq('property_id', propId)
+          .eq('buyer_id', buyerId)
+          .eq('status', 'registered')
+          .maybeSingle()
+
+        if (referral) {
+          const ref = referral as { id: string; referrer_id: string; commission_percent: number }
+          const transactionAmount = (updatedTx as any)?.amount ?? 0
+          const commissionAmount = (Number(transactionAmount) * Number(ref.commission_percent)) / 100
+
+          // Mark referral as paid — commission approved after admin confirms deal
+          await supabaseAdmin.from('referrals').update({
+            status: 'paid',
+            transaction_id: (updatedTx as any)?.id,
+            commission_amount: commissionAmount,
+            paid_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq('id', ref.id)
+
+          // Notify referrer immediately
+          const {error: notificationError} = await supabaseAdmin.from('admin_notifications').insert({
+            type: 'payment_received',
+            title: '🔗 Referral Payment Received',
+            body: `A buyer paid via referral. Commission of ₦${commissionAmount.toLocaleString()} pending deal confirmation.`,
+          })
+
+          if(notificationError){
+        console.log('Failed to create admin notification:', notificationError)
+      }
+        }
+      }
+
+
       // Create admin notification
       await supabaseAdmin.from('admin_notifications').insert({
         type: 'payment_received',
