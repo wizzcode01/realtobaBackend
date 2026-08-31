@@ -1,26 +1,3 @@
-/**
- * Admin Routes — Protected by requireAuth + requireAdmin
- *
- * GET  /api/admin/dashboard         — Stats overview
- * GET  /api/admin/transactions       — All platform transactions
- * POST /api/admin/transactions/:id/confirm-deal  — Mark deal confirmed
- * POST /api/admin/transactions/:id/pay-agent     — Trigger agent payout
- * POST /api/admin/transactions/:id/refund        — Refund a client
- *
- * GET  /api/admin/properties         — All properties (all statuses)
- * POST /api/admin/properties/:id/approve  — Approve a listing
- * POST /api/admin/properties/:id/reject   — Reject a listing
- *
- * GET  /api/admin/users             — All users
- * POST /api/admin/users/:id/suspend — Suspend user
- *
- * GET  /api/admin/notifications     — Admin notifications
- * POST /api/admin/notifications/:id/read — Mark notification read
- *
- * GET  /api/admin/conversations     — All conversations for monitoring
- *
- * POST /api/admin/agents/:id/bank-account — Save agent bank details
- */
 import { Router, Request, Response } from 'express'
 import { body, validationResult } from 'express-validator'
 import { v4 as uuidv4 } from 'uuid'
