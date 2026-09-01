@@ -549,56 +549,56 @@ router.post('/notifications/:id/read', async (req: Request, res: Response): Prom
 // ─────────────────────────────────────────────
 // AGENT BANK ACCOUNT
 // ─────────────────────────────────────────────
-// router.post(
-//   '/agents/:agentId/bank-account',
-//   [
-//     body('accountNumber').isLength({ min: 10, max: 10 }),
-//     body('bankCode').notEmpty(),
-//     body('accountName').notEmpty(),
-//     body('bankName').notEmpty(),
-//   ],
-//   async (req: Request, res: Response): Promise<void> => {
-//     const errors = validationResult(req)
-//     if (!errors.isEmpty()) {
-//       res.status(400).json({ success: false, error: errors.array()[0].msg })
-//       return
-//     }
+router.post(
+  '/agents/:agentId/bank-account',
+  [
+    body('accountNumber').isLength({ min: 10, max: 10 }),
+    body('bankCode').notEmpty(),
+    body('accountName').notEmpty(),
+    body('bankName').notEmpty(),
+  ],
+  async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      res.status(400).json({ success: false, error: errors.array()[0].msg })
+      return
+    }
 
-//     const { agentId } = req.params
-//     const { accountNumber, bankCode, accountName, bankName } = req.body as {
-//       accountNumber: string
-//       bankCode: string
-//       accountName: string
-//       bankName: string
-//     }
+    const { agentId } = req.params
+    const { accountNumber, bankCode, accountName, bankName } = req.body as {
+      accountNumber: string
+      bankCode: string
+      accountName: string
+      bankName: string
+    }
 
-//     try {
-//       // Create Paystack recipient for this agent
-//       const recipient = await createTransferRecipient(accountName, accountNumber, bankCode)
+    try {
+      // Create Paystack recipient for this agent
+      const recipient = await createTransferRecipient(accountName, accountNumber, bankCode)
 
-//       // Upsert bank account record
-//       const { error } = await supabaseAdmin.from('agent_bank_accounts').upsert({
-//         agent_id: agentId,
-//         account_number: accountNumber,
-//         bank_code: bankCode,
-//         account_name: accountName,
-//         bank_name: bankName,
-//         paystack_recipient_code: recipient.recipient_code,
-//         is_verified: true,
-//       }, { onConflict: 'agent_id' })
+      // Upsert bank account record
+      const { error } = await supabaseAdmin.from('agent_bank_accounts').upsert({
+        agent_id: agentId,
+        account_number: accountNumber,
+        bank_code: bankCode,
+        account_name: accountName,
+        bank_name: bankName,
+        paystack_recipient_code: recipient.recipient_code,
+        is_verified: true,
+      }, { onConflict: 'agent_id' })
 
-//       if (error) throw error
+      if (error) throw error
 
-//       res.json({ success: true, message: 'Bank account saved and verified with Paystack.' })
-//     } catch (err) {
-//       console.error('Save bank account error:', err)
-//       res.status(500).json({
-//         success: false,
-//         error: err instanceof Error ? err.message : 'Failed to save bank account.',
-//       })
-//     }
-//   },
-// )
+      res.json({ success: true, message: 'Bank account saved and verified with Paystack.' })
+    } catch (err) {
+      console.error('Save bank account error:', err)
+      res.status(500).json({
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to save bank account.',
+      })
+    }
+  },
+)
 
 // ─────────────────────────────────────────────
 // HELPER — Notify agent about their property status
