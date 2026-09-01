@@ -62,6 +62,6 @@ export async function logAdminAction(
   } catch (err) {
     console.error('Failed to write audit log:', err)
   }
-}
+} 
 
 export default supabaseAdmin

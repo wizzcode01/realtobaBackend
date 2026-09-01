@@ -11,6 +11,7 @@ import type {
   PaystackRecipientResponse,
   PaystackVerifyResponse,
 } from '../types/index.js'
+import { response } from 'express'
 
 const PAYSTACK_BASE = 'https://api.paystack.co'
 const SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
@@ -116,8 +117,9 @@ export async function initiateTransfer(
   reason: string,
 ): Promise<PaystackTransferResponse['data']> {
   const amountKobo = Math.round(amountNaira * 100) // Paystack uses kobo
-
-  const { data } = await paystackApi.post<PaystackTransferResponse>('/transfer', {
+  let response
+  try{
+    response = await paystackApi.post<PaystackTransferResponse>('/transfer', {
     source: 'balance',       // transfer from your Paystack balance
     reason,
     amount: amountKobo,
@@ -125,8 +127,15 @@ export async function initiateTransfer(
     reference,
     currency: 'NGN',
   })
-
+  } catch(err: unknown){
+    const axiosErr = err as { response?: { data?: unknown; status?: number}}
+    const paystackMsg = JSON.stringify(axiosErr?.response?.data ?? err)
+    console.error('paystack transfer error:', paystackMsg)
+    throw new Error(`Failed to initiate transfer: ${paystackMsg}`)
+  }
+  const data = response.data
   if (!data.status) {
+    console.error('Paystack transfer initiation failed:', data)
     throw new Error(`Transfer failed: ${data.message}`)
   }
 

@@ -113,6 +113,65 @@ router.post(
       }
 
       await logAdminAction(admin.userId, 'confirm_deal', id, 'transaction')
+      
+        // ── Credit referrer wallet if there is a referral for this transaction ──
+      const tx = data as { id: string; amount: number }
+      const { data: referral } = await supabaseAdmin
+        .from('referrals')
+        .select('id, referrer_id, commission_amount')
+        .eq('transaction_id', tx.id)
+        .eq('status', 'paid')
+        .maybeSingle()
+ 
+      if (referral) {
+        const ref = referral as { id: string; referrer_id: string; commission_amount: number }
+        const commission = Number(ref.commission_amount)
+ 
+        if (commission > 0) {
+          // Get current wallet balance
+          const { data: wallet } = await supabaseAdmin
+            .from('user_wallets')
+            .select('balance, total_earned')
+            .eq('user_id', ref.referrer_id)
+            .maybeSingle()
+ 
+          const currentBalance = Number((wallet as any)?.balance ?? 0)
+          const totalEarned = Number((wallet as any)?.total_earned ?? 0)
+ 
+          // Credit wallet
+          await supabaseAdmin.from('user_wallets').upsert({
+            user_id: ref.referrer_id,
+            balance: currentBalance + commission,
+            total_earned: totalEarned + commission,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
+ 
+          // Record transaction in wallet ledger
+          await supabaseAdmin.from('wallet_transactions').insert({
+            user_id: ref.referrer_id,
+            type: 'credit',
+            amount: commission,
+            description: `Referral commission earned`,
+            referral_id: ref.id,
+            status: 'completed',
+          })
+ 
+          // Update referral status
+          await supabaseAdmin.from('referrals').update({
+            status: 'commission_paid',
+            commission_paid_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq('id', ref.id)
+ 
+          // Notify referrer
+        await supabaseAdmin.from('admin_notifications').insert({
+            type: 'payment_received',
+            title: 'Referral Commission Paid',
+            body: `₦${commission.toLocaleString()} referral commission has been credited to a user's wallet.`,
+          })
+
+        }
+      }
 
       res.json({ success: true, data, message: 'Deal confirmed. Ready for agent payout.' })
     } catch (err) {
@@ -584,4 +643,93 @@ async function getOrCreateAgentConversation(agentId: string): Promise<string> {
   return (created as { id: string }).id
 }
 
+// GET /api/admin/withdrawals — view all withdrawal requests
+router.get('/withdrawals', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('withdrawal_requests')
+      .select('*, user:users!withdrawal_requests_user_id_fkey(id, name, email, phone)')
+      .order('requested_at', { ascending: false })
+ 
+    if (error) throw error
+    res.json({ success: true, data: data ?? [] })
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to load withdrawals' })
+  }
+})
+ 
+// POST /api/admin/withdrawals/:id/pay — process a withdrawal request
+router.post('/withdrawals/:id/pay', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string }
+  const admin = (req as any).user
+ 
+  try {
+    const { data: wd, error: wdErr } = await supabaseAdmin
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('id', id)
+      .eq('status', 'pending')
+      .single()
+ 
+    if (wdErr || !wd) {
+      res.status(404).json({ success: false, error: 'Withdrawal not found or already processed' })
+      return
+    }
+ 
+    const w = wd as any
+ 
+    // Create Paystack recipient and transfer
+    const { createTransferRecipient, initiateTransfer } = await import('../lib/paystack.js')
+    const recipient = await createTransferRecipient(w.account_name, w.account_number, w.bank_code)
+    const reference = `WD-${Date.now()}`
+    const transfer = await initiateTransfer(recipient.recipient_code, w.amount, reference, 'Realtoba wallet withdrawal')
+ 
+    // Update withdrawal status
+    await supabaseAdmin.from('withdrawal_requests').update({
+      status: 'paid',
+      paystack_transfer_code: transfer.transfer_code,
+      processed_at: new Date().toISOString(),
+    }).eq('id', id)
+ 
+    // Update wallet ledger status
+    await supabaseAdmin.from('wallet_transactions').update({ status: 'completed' })
+      .eq('user_id', w.user_id).eq('type', 'debit').eq('status', 'pending')
+ 
+    await logAdminAction(admin.userId, 'approve_payout', id, 'withdrawal', { amount: w.amount })
+ 
+    res.json({ success: true, message: `₦${Number(w.amount).toLocaleString()} sent to ${w.account_name}` })
+  } catch (err: any) {
+    console.error('withdrawal pay error:', err)
+    res.status(500).json({ success: false, error: err.message ?? 'Failed to process withdrawal' })
+  }
+})
+ 
+// POST /api/admin/withdrawals/:id/reject
+router.post('/withdrawals/:id/reject', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string }
+  const { reason } = req.body as { reason?: string }
+ 
+  try {
+    const { data: wd } = await supabaseAdmin
+      .from('withdrawal_requests').select('user_id, amount').eq('id', id).single()
+ 
+    if (!wd) { res.status(404).json({ success: false, error: 'Not found' }); return }
+    const w = wd as any
+ 
+    // Refund balance back to wallet
+    const { data: wallet } = await supabaseAdmin
+      .from('user_wallets').select('balance').eq('user_id', w.user_id).single()
+    const currentBal = Number((wallet as any)?.balance ?? 0)
+ 
+    await Promise.all([
+      supabaseAdmin.from('withdrawal_requests').update({ status: 'rejected', admin_note: reason ?? '', processed_at: new Date().toISOString() }).eq('id', id),
+      supabaseAdmin.from('user_wallets').update({ balance: currentBal + Number(w.amount), updated_at: new Date().toISOString() }).eq('user_id', w.user_id),
+      supabaseAdmin.from('wallet_transactions').update({ status: 'failed' }).eq('user_id', w.user_id).eq('type', 'debit').eq('status', 'pending'),
+    ])
+ 
+    res.json({ success: true, message: 'Withdrawal rejected and amount refunded to user wallet' })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to reject withdrawal' })
+  }
+})
 export default router
