@@ -124,7 +124,12 @@ router.get(
         return
       }
 
-      const code = (userRes.data as any).referral_code
+      let code = (userRes.data as any).referral_code
+      if (!code) {
+        const newCode = Math.random().toString(36).substring(2, 10).toUpperCase()
+        await supabaseAdmin.from('users').update({ referral_code: newCode }).eq('id', user.userId)
+        code = newCode
+      }
       const FRONTEND = process.env.FRONTEND_URL ?? 'https://realtoba.com'
       const referralLink = `${FRONTEND}/properties/${propertyId}?ref=${code}`
 
@@ -356,6 +361,104 @@ router.post(
       res.status(500).json({ success: false, error: 'Failed to submit withdrawal' })
     }
   },
+)
+
+export const walletRouter = Router()
+walletRouter.use(requireAuth)
+ 
+// Copy wallet routes to the dedicated wallet router
+walletRouter.get('/balance', async (req: Request, res: Response): Promise<void> => {
+  const user = (req as any).user
+  try {
+    let { data } = await supabaseAdmin
+      .from('user_wallets').select('*').eq('user_id', user.userId).maybeSingle()
+    if (!data) {
+      const res2 = await supabaseAdmin.from('user_wallets').insert({ user_id: user.userId }).select().single()
+      data = res2.data
+    }
+    res.json({ success: true, data })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to load wallet' })
+  }
+})
+ 
+walletRouter.get('/transactions', async (req: Request, res: Response): Promise<void> => {
+  const user = (req as any).user
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('wallet_transactions').select('*').eq('user_id', user.userId)
+      .order('created_at', { ascending: false }).limit(50)
+    if (error) throw error
+    res.json({ success: true, data: data ?? [] })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to load transactions' })
+  }
+})
+ 
+walletRouter.get('/withdrawals', async (req: Request, res: Response): Promise<void> => {
+  const user = (req as any).user
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('withdrawal_requests').select('*').eq('user_id', user.userId)
+      .order('requested_at', { ascending: false })
+    if (error) throw error
+    res.json({ success: true, data: data ?? [] })
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Failed to load withdrawals' })
+  }
+})
+ 
+walletRouter.post(
+  '/withdraw',
+  [
+    body('amount').isNumeric().custom((v: any) => Number(v) >= 500).withMessage('Minimum withdrawal is ₦500'),
+    body('bankName').notEmpty().isString(),
+    body('bankCode').notEmpty().isString(),
+    body('accountNumber').notEmpty().isString().isLength({ min: 10, max: 10 }),
+    body('accountName').notEmpty().isString(),
+  ],
+  validate,
+  async (req: Request, res: Response): Promise<void> => {
+    const user = (req as any).user
+    const { amount, bankName, bankCode, accountNumber, accountName } = req.body as any
+    const withdrawAmount = Number(amount)
+    try {
+      const { data: wallet } = await supabaseAdmin
+        .from('user_wallets').select('balance').eq('user_id', user.userId).single()
+      if (!wallet) { res.status(400).json({ success: false, error: 'Wallet not found' }); return }
+      const currentBalance = Number((wallet as any).balance)
+      if (currentBalance < withdrawAmount) {
+        res.status(400).json({ success: false, error: `Insufficient balance. Available: ₦${currentBalance.toLocaleString()}` }); return
+      }
+      const { data: pending } = await supabaseAdmin
+        .from('withdrawal_requests').select('id').eq('user_id', user.userId).eq('status', 'pending').maybeSingle()
+      if (pending) {
+        res.status(400).json({ success: false, error: 'You already have a pending withdrawal request.' }); return
+      }
+      await supabaseAdmin.from('user_wallets')
+        .update({ balance: currentBalance - withdrawAmount, updated_at: new Date().toISOString() })
+        .eq('user_id', user.userId)
+      const { data: wd, error: wdErr } = await supabaseAdmin
+        .from('withdrawal_requests')
+        .insert({ user_id: user.userId, amount: withdrawAmount, bank_name: bankName, bank_code: bankCode, account_number: accountNumber, account_name: accountName, status: 'pending' })
+        .select().single()
+      if (wdErr) {
+        await supabaseAdmin.from('user_wallets').update({ balance: currentBalance, updated_at: new Date().toISOString() }).eq('user_id', user.userId)
+        throw wdErr
+      }
+      await supabaseAdmin.from('wallet_transactions').insert({
+        user_id: user.userId, type: 'debit', amount: withdrawAmount,
+        description: `Withdrawal to ${bankName} - ${accountNumber}`, status: 'pending',
+      })
+      await supabaseAdmin.from('admin_notifications').insert({
+        type: 'payout_failed', title: '💸 Withdrawal Request',
+        body: `A user requested ₦${withdrawAmount.toLocaleString()} withdrawal to ${bankName}.`,
+      })
+      res.status(201).json({ success: true, message: 'Withdrawal request submitted. Admin will process within 24 hours.', data: wd })
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to submit withdrawal' })
+    }
+  }
 )
 
 export default router
