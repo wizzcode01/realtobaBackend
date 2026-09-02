@@ -247,7 +247,7 @@ router.post(
             type,
           })
           .select()
-          .single()
+          .maybeSingle()
 
         if (createError) throw createError
         conversationId = (created as { id: string }).id
